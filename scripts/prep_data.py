@@ -170,6 +170,7 @@ id2word = dict((idx, v) for idx, v in enumerate(vocab))
 params = dict(
     X = X, 
     labels = labels,
+    cell_type_key = cell_type_key,
     L = L, 
     vocab = vocab, 
     gs_dict = gene_set_dictionary, 

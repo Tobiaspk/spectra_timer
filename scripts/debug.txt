@@ -1,0 +1,12 @@
+Arguments:
+  -  epochs 1
+  -  use_cell_types False
+Loading data...
+Running Spectra...
+labels: ['B_naive', 'CD8_T', 'CD8_T', 'MDC', 'Treg', ..., 'B_memory', 'CD8_T', 'B_naive', 'MDC', 'CD4_T']
+Length: 10000
+Categories (14, object): ['B_GC', 'B_memory', 'B_naive', 'CD4_T', ..., 'gdT', 'mast', 'pDC', 'plasma']
+Training model...
+Wrote profile results to run_model.py.lprof
+Timer unit: 1e-06 s
+

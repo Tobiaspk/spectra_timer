@@ -27,6 +27,8 @@ else:
 
 
 print("Running Spectra...")
+print("labels:", params['labels'])
+params.pop("cell_type_key")
 spectra = spc.SPECTRA_Model(**params)
 
 print("Training model...")
