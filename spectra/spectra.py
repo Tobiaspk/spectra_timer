@@ -244,7 +244,7 @@ class SPECTRA(nn.Module):
                 for cell_type in self.cell_types:
                     self.rho[cell_type] = torch.tensor(np.log(rho/(1-rho)))
 
-    
+    @profile
     def loss(self, X, labels): 
         assert(self.use_cell_types) #if this is False, fail because model has not been initialized to use cell types
         
@@ -301,6 +301,7 @@ class SPECTRA(nn.Module):
             loss = loss + term2 + term3 
         return loss
     
+    @profile
     def loss_no_cell_types(self, X):
         assert(self.use_cell_types == False) #if this is True, just fail 
         X = torch.Tensor(X)
@@ -317,13 +318,20 @@ class SPECTRA(nn.Module):
         adj_matrix_1m = self.adj_matrix_1m
         theta_ = contract('jk,j->jk',theta, gene_scaling + self.delta)
         recon = contract('ik,jk->ij', alpha, theta_) 
-        term1 = -1.0*(torch.xlogy(X,recon) - recon).sum()
-
+        term1_a = torch.xlogy(X,recon)
+        term1_b = term1_a - recon
+        term1 = -1.0*(term1_b).sum()
 
         if len(adj_matrix) > 0:
-                mat = contract('il,lj,kj->ik',theta,eta,theta) 
+                mat = contract('il,lj,kj->ik',theta,eta,theta)
+                mat_a = contract('il,lj->ij',theta,eta)
+                mat_b = contract('ij,kj->ik',mat_a,theta)
+                #assert torch.allclose(mat, mat_b) --> this is true
+
                 term2 = -1.0*(torch.xlogy(adj_matrix*weights, (1.0 - rho)*(1.0 -kappa)*mat + (1.0 - rho)*kappa)).sum()
-                term3 = -1.0*(torch.xlogy(adj_matrix_1m,(1.0 -kappa)*(1.0 - rho)*(1.0 - mat) + rho)).sum()
+                term3_a = (1.0 -kappa)*(1.0 - rho)*(1.0 - mat) + rho
+                term3_b = torch.xlogy(adj_matrix_1m, term3_a)
+                term3 = -1.0*(term3_b).sum()
         else:
             term2 = 0.0
             term3 = 0.0
@@ -520,6 +528,7 @@ class SPECTRA_Model:
         model.matching(markers, gene_names_dict, threshold = 0.4):
 
     """
+    @profile
     def __init__(self,X, labels,  L, vocab = None, gs_dict = None, use_weights = False, adj_matrix = None, weights = None, lam = 0.1, delta=0.1,kappa = None, rho = None, use_cell_types = True):
         self.L = L
         self.lam = lam 
@@ -548,6 +557,7 @@ class SPECTRA_Model:
         self.rho = None 
         self.kappa = None 
 
+    @profile
     def train(self,X, labels = None, lr_schedule = [1.0,.5,.1,.01,.001,.0001],num_epochs = 10000, verbose = False): 
         opt = torch.optim.Adam(self.internal_model.parameters(), lr=lr_schedule[0])
         counter = 0
