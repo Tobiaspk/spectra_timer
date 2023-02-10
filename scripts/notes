@@ -1,0 +1,9 @@
+Dimensions:
+- X: n x m
+- alpha: n x L
+- theta: p x L
+- eta: L x L
+
+- n: 10000
+- p: 6397
+- L: 150
