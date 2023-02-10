@@ -1,0 +1,370 @@
+Arguments:
+  -  epochs 50
+  -  use_cell_types False
+Loading data...
+Running Spectra...
+Training model...
+Wrote profile results to run_model.py.lprof
+Timer unit: 1e-06 s
+
+Total time: 0 s
+File: /Users/krauset/projects/tools/spectra/spectra/spectra.py
+Function: loss at line 247
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   247                                               @profile
+   248                                               def loss(self, X, labels): 
+   249                                                   assert(self.use_cell_types) #if this is False, fail because model has not been initialized to use cell types
+   250                                                   
+   251                                                   #convert inputs to torch.Tensors
+   252                                                   X = torch.Tensor(X)
+   253                                                   #labels = torch.Tensor(labels)
+   254                                           
+   255                                                   #initialize loss and fetch global parameters
+   256                                                   loss = 0.0
+   257                                                   theta_global = torch.softmax(self.theta["global"], dim = 1)
+   258                                                   eta_global = (self.eta["global"]).exp()/(1.0 + (self.eta["global"]).exp())
+   259                                                   eta_global = 0.5*(eta_global + eta_global.T)
+   260                                                   gene_scaling_global = self.gene_scaling["global"].exp()/(1.0 + self.gene_scaling["global"].exp())
+   261                                                   kappa_global = self.kappa["global"].exp()/(1 + self.kappa["global"].exp())
+   262                                                   rho_global = self.rho["global"].exp()/(1 + self.rho["global"].exp())
+   263                                           
+   264                                                   #loop through cell types and evaluate loss at every cell type
+   265                                                   for cell_type in self.cell_types:
+   266                                                       kappa = self.kappa[cell_type].exp()/(1 + self.kappa[cell_type].exp())
+   267                                                       rho = self.rho[cell_type].exp()/(1 + self.rho[cell_type].exp())
+   268                                                       gene_scaling_ct = self.gene_scaling[cell_type].exp()/(1.0 + self.gene_scaling[cell_type].exp())
+   269                                                       X_c = X[labels == cell_type]
+   270                                                       adj_matrix = self.adj_matrix[cell_type] 
+   271                                                       weights = self.weights[cell_type]
+   272                                                       adj_matrix_1m = self.adj_matrix_1m[cell_type]
+   273                                                       theta_ct = torch.softmax(self.theta[cell_type], dim = 1)
+   274                                                       eta_ct = (self.eta[cell_type]).exp()/(1.0 + (self.eta[cell_type]).exp())
+   275                                                       eta_ct = 0.5*(eta_ct + eta_ct.T)
+   276                                                       theta_global_ = contract('jk,j->jk',theta_global, gene_scaling_global + self.delta)
+   277                                                       theta_ct_ = contract('jk,j->jk',theta_ct, gene_scaling_ct + self.delta)
+   278                                                       theta = torch.cat((theta_global_, theta_ct_),1)
+   279                                                       alpha = torch.exp(self.alpha[cell_type])
+   280                                                       recon = contract('ik,jk->ij', alpha, theta) 
+   281                                                       term1 = -1.0*(torch.xlogy(X_c,recon) - recon).sum()
+   282                                                       if len(adj_matrix) > 0:
+   283                                                           mat = contract('il,lj,kj->ik',theta_ct,eta_ct,theta_ct) 
+   284                                                           term2 = -1.0*(torch.xlogy(adj_matrix*weights, (1.0 - rho)*(1.0 -kappa)*mat + (1.0 - rho)*kappa)).sum()
+   285                                                           term3 = -1.0*(torch.xlogy(adj_matrix_1m,(1.0 -kappa)*(1.0 - rho)*(1.0 - mat) + rho)).sum()
+   286                                                       else:
+   287                                                           term2 = 0.0
+   288                                                           term3 = 0.0
+   289                                                       #the magnitude of lambda is proportional to the number of cells [todo: simpler to just take the mean instead of sum in term 1]
+   290                                                       loss = loss + self.lam*term1 +(self.cell_type_counts[cell_type]/float(self.n))*(term2 + term3) 
+   291                                                       
+   292                                           
+   293                                                   #compute loss associated with global graph
+   294                                                   adj_matrix = self.adj_matrix["global"] 
+   295                                                   adj_matrix_1m = self.adj_matrix_1m["global"]
+   296                                                   weights = self.weights["global"]
+   297                                                   if len(adj_matrix) > 0:
+   298                                                       mat = contract('il,lj,kj->ik',theta_global,eta_global,theta_global) 
+   299                                                       term2 = -1.0*(torch.xlogy(adj_matrix*weights, (1.0 - rho_global)*(1.0 -kappa_global)*mat + (1.0 - rho_global)*kappa_global)).sum()
+   300                                                       term3 = -1.0*(torch.xlogy(adj_matrix_1m, (1.0 -kappa_global)*(1.0 - rho_global)*(1.0 - mat) + rho_global)).sum()
+   301                                                       loss = loss + term2 + term3 
+   302                                                   return loss
+
+Total time: 18.7064 s
+File: /Users/krauset/projects/tools/spectra/spectra/spectra.py
+Function: loss_no_cell_types at line 304
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   304                                               @profile
+   305                                               def loss_no_cell_types(self, X):
+   306        50         47.0      0.9      0.0          assert(self.use_cell_types == False) #if this is True, just fail 
+   307        50        890.0     17.8      0.0          X = torch.Tensor(X)
+   308                                           
+   309        50      56153.0   1123.1      0.3          theta = torch.softmax(self.theta, dim = 1)
+   310        50      11225.0    224.5      0.1          eta = self.eta.exp()/(1.0 + (self.eta).exp())
+   311        50       7244.0    144.9      0.0          eta = 0.5*(eta + eta.T)
+   312        50       5067.0    101.3      0.0          gene_scaling = self.gene_scaling.exp()/(1.0 + self.gene_scaling.exp())
+   313        50        693.0     13.9      0.0          kappa = self.kappa.exp()/(1 + self.kappa.exp())
+   314        50        432.0      8.6      0.0          rho = self.rho.exp()/(1 + self.rho.exp())
+   315        50      64360.0   1287.2      0.3          alpha = torch.exp(self.alpha)
+   316        50         56.0      1.1      0.0          adj_matrix = self.adj_matrix
+   317        50         57.0      1.1      0.0          weights = self.weights
+   318        50         36.0      0.7      0.0          adj_matrix_1m = self.adj_matrix_1m
+   319        50      20470.0    409.4      0.1          theta_ = contract('jk,j->jk',theta, gene_scaling + self.delta)
+   320        50    2278607.0  45572.1     12.2          recon = contract('ik,jk->ij', alpha, theta_) 
+   321        50    6737625.0 134752.5     36.0          term1 = -1.0*(torch.xlogy(X,recon) - recon).sum()
+   322                                           
+   323                                           
+   324        50        842.0     16.8      0.0          if len(adj_matrix) > 0:
+   325        50    1952148.0  39043.0     10.4                  mat = contract('il,lj,kj->ik',theta,eta,theta) 
+   326        50    3193067.0  63861.3     17.1                  term2 = -1.0*(torch.xlogy(adj_matrix*weights, (1.0 - rho)*(1.0 -kappa)*mat + (1.0 - rho)*kappa)).sum()
+   327        50    4376683.0  87533.7     23.4                  term3 = -1.0*(torch.xlogy(adj_matrix_1m,(1.0 -kappa)*(1.0 - rho)*(1.0 - mat) + rho)).sum()
+   328                                                   else:
+   329                                                       term2 = 0.0
+   330                                                       term3 = 0.0
+   331                                           
+   332        50        736.0     14.7      0.0          return self.lam*term1 + term2 + term3    
+
+Total time: 0.757398 s
+File: /Users/krauset/projects/tools/spectra/spectra/spectra.py
+Function: __init__ at line 524
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   524                                               @profile
+   525                                               def __init__(self,X, labels,  L, vocab = None, gs_dict = None, use_weights = False, adj_matrix = None, weights = None, lam = 0.1, delta=0.1,kappa = None, rho = None, use_cell_types = True):
+   526         1          1.0      1.0      0.0          self.L = L
+   527         1          0.0      0.0      0.0          self.lam = lam 
+   528         1          0.0      0.0      0.0          self.delta = delta 
+   529         1          0.0      0.0      0.0          self.kappa = kappa 
+   530         1          1.0      1.0      0.0          self.rho = rho 
+   531         1          0.0      0.0      0.0          self.use_cell_types = use_cell_types
+   532                                           
+   533                                                   # if gs_dict is provided instead of adj_matrix, convert to adj_matrix, overrides adj_matrix and weights
+   534         1          0.0      0.0      0.0          if gs_dict is not None:
+   535         1       1151.0   1151.0      0.2              gene2id = dict((v, idx) for idx, v in enumerate(vocab))
+   536                                                       
+   537         1          0.0      0.0      0.0              if use_cell_types:
+   538                                                           adj_matrix, weights = spectra_util.process_gene_sets(gs_dict = gs_dict, gene2id = gene2id, weighted = use_weights)
+   539                                                       else:
+   540         1     272648.0 272648.0     36.0                  adj_matrix, weights = spectra_util.process_gene_sets_no_celltypes(gs_dict = gs_dict, gene2id = gene2id, weighted = use_weights)
+   541                                           
+   542                                           
+   543         1     483597.0 483597.0     63.8          self.internal_model = SPECTRA(X = X, labels = labels, adj_matrix = adj_matrix, L = L, weights = weights, lam = lam, delta=delta,kappa = kappa, rho = rho, use_cell_types = use_cell_types)
+   544                                           
+   545         1          0.0      0.0      0.0          self.cell_scores = None
+   546         1          0.0      0.0      0.0          self.factors = None
+   547         1          0.0      0.0      0.0          self.B_diag = None
+   548         1          0.0      0.0      0.0          self.eta_matrices = None 
+   549         1          0.0      0.0      0.0          self.gene_scalings = None 
+   550         1          0.0      0.0      0.0          self.rho = None 
+   551         1          0.0      0.0      0.0          self.kappa = None 
+
+Total time: 38.3762 s
+File: /Users/krauset/projects/tools/spectra/spectra/spectra.py
+Function: train at line 553
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   553                                               @profile
+   554                                               def train(self,X, labels = None, lr_schedule = [1.0,.5,.1,.01,.001,.0001],num_epochs = 10000, verbose = False): 
+   555         1        115.0    115.0      0.0          opt = torch.optim.Adam(self.internal_model.parameters(), lr=lr_schedule[0])
+   556         1          0.0      0.0      0.0          counter = 0
+   557         1          1.0      1.0      0.0          last = np.inf
+   558                                           
+   559        50      16930.0    338.6      0.0          for i in tqdm(range(num_epochs)):
+   560                                                       #print(counter)
+   561        50      16678.0    333.6      0.0              opt.zero_grad()
+   562        50         67.0      1.3      0.0              if self.internal_model.use_cell_types:
+   563                                                           assert(len(labels) == X.shape[0])
+   564                                                           loss = self.internal_model.loss(X, labels)
+   565        50         30.0      0.6      0.0              elif self.internal_model.use_cell_types == False:
+   566        50   18792709.0 375854.2     49.0                  loss = self.internal_model.loss_no_cell_types(X)
+   567                                           
+   568        50   19306945.0 386138.9     50.3              loss.backward()
+   569        50     237083.0   4741.7      0.6              opt.step()
+   570                                                   
+   571        49         79.0      1.6      0.0              if loss.item() >= last:
+   572         1          1.0      1.0      0.0                  counter += 1
+   573         1         17.0     17.0      0.0                  if int(counter/3) >= len(lr_schedule):
+   574                                                               break
+   575         1          0.0      0.0      0.0                  if counter % 3 == 0:
+   576                                                               opt = torch.optim.Adam(self.internal_model.parameters(), lr=lr_schedule[int(counter/3)])
+   577                                                               if verbose:
+   578                                                                   print("UPDATING LR TO " + str(lr_schedule[int(counter/3)]))
+   579        50         30.0      0.6      0.0              last = loss.item() 
+   580                                           
+   581                                           
+   582                                                   #add all model parameters as attributes 
+   583                                           
+   584         1          1.0      1.0      0.0          if self.use_cell_types:
+   585                                                       self.__store_parameters(labels)
+   586                                                   else:
+   587         1       5520.0   5520.0      0.0              self.__store_parameters_no_celltypes()
+
+Arguments:
+  -  epochs 50
+  -  use_cell_types False
+Loading data...
+Running Spectra...
+Training model...
+Wrote profile results to run_model.py.lprof
+Timer unit: 1e-06 s
+
+Total time: 0 s
+File: /Users/krauset/projects/tools/spectra/spectra/spectra.py
+Function: loss at line 247
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   247                                               @profile
+   248                                               def loss(self, X, labels): 
+   249                                                   assert(self.use_cell_types) #if this is False, fail because model has not been initialized to use cell types
+   250                                                   
+   251                                                   #convert inputs to torch.Tensors
+   252                                                   X = torch.Tensor(X)
+   253                                                   #labels = torch.Tensor(labels)
+   254                                           
+   255                                                   #initialize loss and fetch global parameters
+   256                                                   loss = 0.0
+   257                                                   theta_global = torch.softmax(self.theta["global"], dim = 1)
+   258                                                   eta_global = (self.eta["global"]).exp()/(1.0 + (self.eta["global"]).exp())
+   259                                                   eta_global = 0.5*(eta_global + eta_global.T)
+   260                                                   gene_scaling_global = self.gene_scaling["global"].exp()/(1.0 + self.gene_scaling["global"].exp())
+   261                                                   kappa_global = self.kappa["global"].exp()/(1 + self.kappa["global"].exp())
+   262                                                   rho_global = self.rho["global"].exp()/(1 + self.rho["global"].exp())
+   263                                           
+   264                                                   #loop through cell types and evaluate loss at every cell type
+   265                                                   for cell_type in self.cell_types:
+   266                                                       kappa = self.kappa[cell_type].exp()/(1 + self.kappa[cell_type].exp())
+   267                                                       rho = self.rho[cell_type].exp()/(1 + self.rho[cell_type].exp())
+   268                                                       gene_scaling_ct = self.gene_scaling[cell_type].exp()/(1.0 + self.gene_scaling[cell_type].exp())
+   269                                                       X_c = X[labels == cell_type]
+   270                                                       adj_matrix = self.adj_matrix[cell_type] 
+   271                                                       weights = self.weights[cell_type]
+   272                                                       adj_matrix_1m = self.adj_matrix_1m[cell_type]
+   273                                                       theta_ct = torch.softmax(self.theta[cell_type], dim = 1)
+   274                                                       eta_ct = (self.eta[cell_type]).exp()/(1.0 + (self.eta[cell_type]).exp())
+   275                                                       eta_ct = 0.5*(eta_ct + eta_ct.T)
+   276                                                       theta_global_ = contract('jk,j->jk',theta_global, gene_scaling_global + self.delta)
+   277                                                       theta_ct_ = contract('jk,j->jk',theta_ct, gene_scaling_ct + self.delta)
+   278                                                       theta = torch.cat((theta_global_, theta_ct_),1)
+   279                                                       alpha = torch.exp(self.alpha[cell_type])
+   280                                                       recon = contract('ik,jk->ij', alpha, theta) 
+   281                                                       term1 = -1.0*(torch.xlogy(X_c,recon) - recon).sum()
+   282                                                       if len(adj_matrix) > 0:
+   283                                                           mat = contract('il,lj,kj->ik',theta_ct,eta_ct,theta_ct) 
+   284                                                           term2 = -1.0*(torch.xlogy(adj_matrix*weights, (1.0 - rho)*(1.0 -kappa)*mat + (1.0 - rho)*kappa)).sum()
+   285                                                           term3 = -1.0*(torch.xlogy(adj_matrix_1m,(1.0 -kappa)*(1.0 - rho)*(1.0 - mat) + rho)).sum()
+   286                                                       else:
+   287                                                           term2 = 0.0
+   288                                                           term3 = 0.0
+   289                                                       #the magnitude of lambda is proportional to the number of cells [todo: simpler to just take the mean instead of sum in term 1]
+   290                                                       loss = loss + self.lam*term1 +(self.cell_type_counts[cell_type]/float(self.n))*(term2 + term3) 
+   291                                                       
+   292                                           
+   293                                                   #compute loss associated with global graph
+   294                                                   adj_matrix = self.adj_matrix["global"] 
+   295                                                   adj_matrix_1m = self.adj_matrix_1m["global"]
+   296                                                   weights = self.weights["global"]
+   297                                                   if len(adj_matrix) > 0:
+   298                                                       mat = contract('il,lj,kj->ik',theta_global,eta_global,theta_global) 
+   299                                                       term2 = -1.0*(torch.xlogy(adj_matrix*weights, (1.0 - rho_global)*(1.0 -kappa_global)*mat + (1.0 - rho_global)*kappa_global)).sum()
+   300                                                       term3 = -1.0*(torch.xlogy(adj_matrix_1m, (1.0 -kappa_global)*(1.0 - rho_global)*(1.0 - mat) + rho_global)).sum()
+   301                                                       loss = loss + term2 + term3 
+   302                                                   return loss
+
+Total time: 19.3845 s
+File: /Users/krauset/projects/tools/spectra/spectra/spectra.py
+Function: loss_no_cell_types at line 304
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   304                                               @profile
+   305                                               def loss_no_cell_types(self, X):
+   306        50         20.0      0.4      0.0          assert(self.use_cell_types == False) #if this is True, just fail 
+   307        50        889.0     17.8      0.0          X = torch.Tensor(X)
+   308                                           
+   309        50      56529.0   1130.6      0.3          theta = torch.softmax(self.theta, dim = 1)
+   310        50      10660.0    213.2      0.1          eta = self.eta.exp()/(1.0 + (self.eta).exp())
+   311        50       7507.0    150.1      0.0          eta = 0.5*(eta + eta.T)
+   312        50      12681.0    253.6      0.1          gene_scaling = self.gene_scaling.exp()/(1.0 + self.gene_scaling.exp())
+   313        50        578.0     11.6      0.0          kappa = self.kappa.exp()/(1 + self.kappa.exp())
+   314        50        348.0      7.0      0.0          rho = self.rho.exp()/(1 + self.rho.exp())
+   315        50      67259.0   1345.2      0.3          alpha = torch.exp(self.alpha)
+   316        50         54.0      1.1      0.0          adj_matrix = self.adj_matrix
+   317        50         18.0      0.4      0.0          weights = self.weights
+   318        50         21.0      0.4      0.0          adj_matrix_1m = self.adj_matrix_1m
+   319        50      21298.0    426.0      0.1          theta_ = contract('jk,j->jk',theta, gene_scaling + self.delta)
+   320        50    2325765.0  46515.3     12.0          recon = contract('ik,jk->ij', alpha, theta_) 
+   321        50    6992265.0 139845.3     36.1          term1 = -1.0*(torch.xlogy(X,recon) - recon).sum()
+   322                                           
+   323                                           
+   324        50        782.0     15.6      0.0          if len(adj_matrix) > 0:
+   325        50    2070681.0  41413.6     10.7                  mat = contract('il,lj,kj->ik',theta,eta,theta) 
+   326        50    3414157.0  68283.1     17.6                  term2 = -1.0*(torch.xlogy(adj_matrix*weights, (1.0 - rho)*(1.0 -kappa)*mat + (1.0 - rho)*kappa)).sum()
+   327        50    4402315.0  88046.3     22.7                  term3 = -1.0*(torch.xlogy(adj_matrix_1m,(1.0 -kappa)*(1.0 - rho)*(1.0 - mat) + rho)).sum()
+   328                                                   else:
+   329                                                       term2 = 0.0
+   330                                                       term3 = 0.0
+   331                                           
+   332        50        712.0     14.2      0.0          return self.lam*term1 + term2 + term3    
+
+Total time: 0.566661 s
+File: /Users/krauset/projects/tools/spectra/spectra/spectra.py
+Function: __init__ at line 524
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   524                                               @profile
+   525                                               def __init__(self,X, labels,  L, vocab = None, gs_dict = None, use_weights = False, adj_matrix = None, weights = None, lam = 0.1, delta=0.1,kappa = None, rho = None, use_cell_types = True):
+   526         1          0.0      0.0      0.0          self.L = L
+   527         1          1.0      1.0      0.0          self.lam = lam 
+   528         1          0.0      0.0      0.0          self.delta = delta 
+   529         1          0.0      0.0      0.0          self.kappa = kappa 
+   530         1          0.0      0.0      0.0          self.rho = rho 
+   531         1          0.0      0.0      0.0          self.use_cell_types = use_cell_types
+   532                                           
+   533                                                   # if gs_dict is provided instead of adj_matrix, convert to adj_matrix, overrides adj_matrix and weights
+   534         1          1.0      1.0      0.0          if gs_dict is not None:
+   535         1       1145.0   1145.0      0.2              gene2id = dict((v, idx) for idx, v in enumerate(vocab))
+   536                                                       
+   537         1          1.0      1.0      0.0              if use_cell_types:
+   538                                                           adj_matrix, weights = spectra_util.process_gene_sets(gs_dict = gs_dict, gene2id = gene2id, weighted = use_weights)
+   539                                                       else:
+   540         1     264183.0 264183.0     46.6                  adj_matrix, weights = spectra_util.process_gene_sets_no_celltypes(gs_dict = gs_dict, gene2id = gene2id, weighted = use_weights)
+   541                                           
+   542                                           
+   543         1     301325.0 301325.0     53.2          self.internal_model = SPECTRA(X = X, labels = labels, adj_matrix = adj_matrix, L = L, weights = weights, lam = lam, delta=delta,kappa = kappa, rho = rho, use_cell_types = use_cell_types)
+   544                                           
+   545         1          1.0      1.0      0.0          self.cell_scores = None
+   546         1          1.0      1.0      0.0          self.factors = None
+   547         1          1.0      1.0      0.0          self.B_diag = None
+   548         1          1.0      1.0      0.0          self.eta_matrices = None 
+   549         1          0.0      0.0      0.0          self.gene_scalings = None 
+   550         1          1.0      1.0      0.0          self.rho = None 
+   551         1          0.0      0.0      0.0          self.kappa = None 
+
+Total time: 39.4916 s
+File: /Users/krauset/projects/tools/spectra/spectra/spectra.py
+Function: train at line 553
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   553                                               @profile
+   554                                               def train(self,X, labels = None, lr_schedule = [1.0,.5,.1,.01,.001,.0001],num_epochs = 10000, verbose = False): 
+   555         1        111.0    111.0      0.0          opt = torch.optim.Adam(self.internal_model.parameters(), lr=lr_schedule[0])
+   556         1          0.0      0.0      0.0          counter = 0
+   557         1          0.0      0.0      0.0          last = np.inf
+   558                                           
+   559        50      18024.0    360.5      0.0          for i in tqdm(range(num_epochs)):
+   560                                                       #print(counter)
+   561        50      17075.0    341.5      0.0              opt.zero_grad()
+   562        50         95.0      1.9      0.0              if self.internal_model.use_cell_types:
+   563                                                           assert(len(labels) == X.shape[0])
+   564                                                           loss = self.internal_model.loss(X, labels)
+   565        50         27.0      0.5      0.0              elif self.internal_model.use_cell_types == False:
+   566        50   19474486.0 389489.7     49.3                  loss = self.internal_model.loss_no_cell_types(X)
+   567                                           
+   568        50   19709566.0 394191.3     49.9              loss.backward()
+   569        50     260572.0   5211.4      0.7              opt.step()
+   570                                                   
+   571        48         69.0      1.4      0.0              if loss.item() >= last:
+   572         2          1.0      0.5      0.0                  counter += 1
+   573         2         17.0      8.5      0.0                  if int(counter/3) >= len(lr_schedule):
+   574                                                               break
+   575         2          1.0      0.5      0.0                  if counter % 3 == 0:
+   576                                                               opt = torch.optim.Adam(self.internal_model.parameters(), lr=lr_schedule[int(counter/3)])
+   577                                                               if verbose:
+   578                                                                   print("UPDATING LR TO " + str(lr_schedule[int(counter/3)]))
+   579        50         34.0      0.7      0.0              last = loss.item() 
+   580                                           
+   581                                           
+   582                                                   #add all model parameters as attributes 
+   583                                           
+   584         1          1.0      1.0      0.0          if self.use_cell_types:
+   585                                                       self.__store_parameters(labels)
+   586                                                   else:
+   587         1      11531.0  11531.0      0.0              self.__store_parameters_no_celltypes()
+

@@ -9,7 +9,10 @@ if [ -z "$VIRTUAL_ENV" ]; then
 fi
 
 # install and upgrade this package
-pip install --upgrade .
+pip install -e .
 
 # install line_profiler
 pip install line_profiler
+
+# test profiler
+kernprof -l -v scripts/test_profiler.py

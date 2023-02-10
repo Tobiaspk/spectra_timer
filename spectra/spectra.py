@@ -520,6 +520,7 @@ class SPECTRA_Model:
         model.matching(markers, gene_names_dict, threshold = 0.4):
 
     """
+    @profile
     def __init__(self,X, labels,  L, vocab = None, gs_dict = None, use_weights = False, adj_matrix = None, weights = None, lam = 0.1, delta=0.1,kappa = None, rho = None, use_cell_types = True):
         self.L = L
         self.lam = lam 
@@ -548,6 +549,7 @@ class SPECTRA_Model:
         self.rho = None 
         self.kappa = None 
 
+    @profile
     def train(self,X, labels = None, lr_schedule = [1.0,.5,.1,.01,.001,.0001],num_epochs = 10000, verbose = False): 
         opt = torch.optim.Adam(self.internal_model.parameters(), lr=lr_schedule[0])
         counter = 0

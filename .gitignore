@@ -2,3 +2,5 @@ venv/*
 data/*
 build/*
 *egg-info/*
+scripts/debug.py
+*__pycache__*
